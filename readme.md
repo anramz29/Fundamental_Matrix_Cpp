@@ -65,6 +65,8 @@ CMakeLists.txt
 
 ## Results
 
+Image pair 1 (left.jpg / right.jpg)
+
 **OpenCV reference (`cv::findFundamentalMat` + RANSAC internally)**
 ![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
 
