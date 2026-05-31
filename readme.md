@@ -13,7 +13,11 @@ Given two photos of the same scene from different viewpoints, it:
 1. Detects and matches features (ORB + brute-force Hamming matching)
 2. Computes the fundamental matrix `F` via the normalized 8-point algorithm
 3. Verifies the result against OpenCV and by epipolar constraint error
-4. Draws the epipolar lines to confirm the geometry visually
+4. Filters RANSAC inliers using **Sampson distance** — a first-order geometric
+   error that weights each correspondence by how far its matched point lies from
+   the predicted epipolar line, without requiring full triangulation:
+   `d_S = (x'ᵀFx)² / ((Fx)₀² + (Fx)₁² + (Fᵀx')₀² + (Fᵀx')₁²)`
+5. Draws the epipolar lines to confirm the geometry visually
 
 `F` encodes the epipolar geometry between the two views: for corresponding points
 `x` and `x'`, it satisfies `x'ᵀ F x = 0`.
@@ -61,21 +65,30 @@ CMakeLists.txt
 
 ## Results
 
+### Image pair 1 (left.jpg / right.jpg)
+
 **OpenCV reference (`cv::findFundamentalMat` + RANSAC internally)**
-![OpenCV epipolar lines](output/ocv_f.png)
-
- Lines are horizontal and converge to an epipole far off to the right side, outside the frame. Nearly-parallel horizontal lines.
-
+![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
 
 **Hand-rolled 8-point algorithm (all matches, no RANSAC)**
-![My F epipolar lines](output/my_f.png)
+![My F epipolar lines on scene](output/my_f_scene.png)
 
-Here we can notice that the dot's are off the line in several places, suggesting a corrupted fit.
+**Hand-rolled 8-point algorithm with RANSAC + Sampson distance**
+![RANSAC epipolar lines on scene](output/ransac_f_scene.png)
 
-**Hand-rolled 8-point algorithm with RANSAC**
-![RANSAC epipolar lines](output/ransac_f.png)
 
-Here we see dot's are on the line but the lines converged close to a epipole at the tree, a valid fit but claims a different camera motion than open_cv
+---
+
+### Image pair 2 (left_1.jpg / right_1.jpg)
+
+**OpenCV reference**
+![OpenCV epipolar lines on scene 2](output/ocv_f_scene2.png)
+
+**Hand-rolled 8-point algorithm (all matches, no RANSAC)**
+![My F epipolar lines on scene 2](output/my_f_scene2.png)
+
+**Hand-rolled 8-point algorithm with RANSAC + Sampson distance**
+![RANSAC epipolar lines on scene 2](output/ransac_f_scene2.png)
 
 ## Notes / next steps
 

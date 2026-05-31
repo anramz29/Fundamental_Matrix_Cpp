@@ -121,23 +121,33 @@ cv::Mat computeFundamentalMatrix(const std::vector<cv::Point2f>& pts1,
 
 double epipolarError(const cv::Mat& F, const cv::Point2f& left_pts,
     const cv::Point2f& right_pts){
-// testing is based of xr^T * F * xl =0, we use Mat_ here 
-cv::Mat xl = (cv::Mat_<double>(3,1) << left_pts.x, left_pts.y, 1.0);
-cv::Mat xr = (cv::Mat_<double>(3,1) << right_pts.x, right_pts.y, 1.0);
-// we want the product to be as close to zero as possible, main property of the 
-// fundemental matrix
-cv::Mat e = xr.t() * F * xl;
+    // testing is based of xr^T * F * xl =0, we use Mat_ here 
+    cv::Mat xl = (cv::Mat_<double>(3,1) << left_pts.x, left_pts.y, 1.0);
+    cv::Mat xr = (cv::Mat_<double>(3,1) << right_pts.x, right_pts.y, 1.0);
+    // we want the product to be as close to zero as possible, main property of the 
+    // fundemental matrix
+    cv::Mat e = xr.t() * F * xl;
 
-// pull out the value
-double error = e.at<double>(0,0);
+    // pull out the value as or numerator
+    double num = e.at<double>(0,0);
 
-// we need the absolute epipolar value
-return std::abs(error);
+    cv::Mat Fxl = F * xl;
+    cv::Mat Ftxr = F.t() * xr;
+
+    // now we apply the sampson distance to select inliners byt geomertic cloness
+    // as without it algebriac error was letting a fake rotation slip through
+    double d = Fxl.at<double>(0)*Fxl.at<double>(0)
+        + Fxl.at<double>(1)*Fxl.at<double>(1)
+        + Ftxr.at<double>(0)*Ftxr.at<double>(0)
+        + Ftxr.at<double>(1)*Ftxr.at<double>(1);
+
+    // Sampson distance = num^2 / d  (guard against divide-by-zero)
+    return (d > 1e-12) ? (num*num) / d : 0.0;
 }
 
 cv::Mat RansacFundamental(const std::vector<cv::Point2f>& pts_left,
                         const std::vector<cv::Point2f>& pts_right,
-                        double threshold=0.5, int iterations=2000){
+                        double threshold=3.0, int iterations=2000){
         
         // store data outside of loop
         int n = (int)pts_left.size();
@@ -307,9 +317,9 @@ int main() {
     cv::Mat vis_ransac_f = drawEpipolarLines(right, ransac_F, left_pts, right_pts);
     cv::Mat vis_ocv_f    = drawEpipolarLines(right, ocv_F,    left_pts, right_pts);
 
-    cv::imwrite("output/my_f.png",     vis_my_f);
-    cv::imwrite("output/ransac_f.png", vis_ransac_f);
-    cv::imwrite("output/ocv_f.png",    vis_ocv_f);
+    cv::imwrite("output/my_f_scene.png",     vis_my_f);
+    cv::imwrite("output/ransac_f_scene.png", vis_ransac_f);
+    cv::imwrite("output/ocv_f_scene.png",    vis_ocv_f);
 
     cv::imshow("my F",     vis_my_f);
     cv::imshow("ransac F", vis_ransac_f);
