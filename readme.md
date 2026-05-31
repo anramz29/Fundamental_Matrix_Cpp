@@ -65,8 +65,6 @@ CMakeLists.txt
 
 ## Results
 
-### Image pair 1 (left.jpg / right.jpg)
-
 **OpenCV reference (`cv::findFundamentalMat` + RANSAC internally)**
 ![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
 
@@ -89,6 +87,18 @@ CMakeLists.txt
 
 **Hand-rolled 8-point algorithm with RANSAC + Sampson distance**
 ![RANSAC epipolar lines on scene 2](output/ransac_f_scene2.png)
+
+# Camera Motion and Written Results
+As seen above an indoor room (lots of repetitive
+texture — serape stripes, blind slats, curtain grid) and an outdoor stone wall
+(rich non-repetitive texture). In both the camera was roughly translated sideway with no rotation, so the epipolar lines should be near-horizontal. Three fundamental matrices are compared, each visualized by drawing epipolar
+lines (green) and the corresponding points (red) on the right image. A correct F
+is indicated by red points lying on their green lines. 
+
+generally the raw algebraic 8-point fit can satisfy the epipolar constraint numerically
+while still encoding an incorrect rotation. Switching the inlier metric to the Sampson distance, combined with RANSAC outlier rejection, brings the from-scratch
+estimate into a closer agreement with OpenCV and with the true camera motion.
+
 
 ## Notes / next steps
 
