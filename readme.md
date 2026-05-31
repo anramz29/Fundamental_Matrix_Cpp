@@ -59,6 +59,24 @@ CMakeLists.txt
    lines meet at a single epipole)
 5. **Denormalize** — undo the normalization so `F` works in pixel coordinates
 
+## Results
+
+**OpenCV reference (`cv::findFundamentalMat` + RANSAC internally)**
+![OpenCV epipolar lines](output/ocv_f.png)
+
+ Lines are horizontal and converge to an epipole far off to the right side, outside the frame. Nearly-parallel horizontal lines.
+
+
+**Hand-rolled 8-point algorithm (all matches, no RANSAC)**
+![My F epipolar lines](output/my_f.png)
+
+Here we can notice that the dot's are off the line in several places, suggesting a corrupted fit.
+
+**Hand-rolled 8-point algorithm with RANSAC**
+![RANSAC epipolar lines](output/ransac_f.png)
+
+Here we see dot's are on the line but the lines converged close to a epipole at the tree, a valid fit but claims a different camera motion than open_cv
+
 ## Notes / next steps
 
 - The current version uses all matches, including outliers from repeated texture, so the

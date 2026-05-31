@@ -1,6 +1,8 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
+
+
 std::vector<cv::Point2f> normalizePoints(const std::vector<cv::Point2f>& pts, cv::Mat& T){
     double centeroidX = 0;
     double centeroidY = 0;
@@ -12,7 +14,7 @@ std::vector<cv::Point2f> normalizePoints(const std::vector<cv::Point2f>& pts, cv
         centeroidY += pts[i].y;
     }
 
-    // centeroid corrdinates
+    // centeroid corrdinates, 
     double cx = centeroidX /n;
     double cy = centeroidY /n;
 
@@ -36,11 +38,13 @@ std::vector<cv::Point2f> normalizePoints(const std::vector<cv::Point2f>& pts, cv
     // build or T matrix eye is Identity matrix
     T = cv::Mat::eye(3,3,CV_64F);
 
+
     T.at<double>(0,0) = s;
     T.at<double>(1,1) = s;
     T.at<double>(0,2) = -s*cx;
     T.at<double>(1,2) = -s*cy;
 
+    
     // apply T to eeach point to build normalized output
     std::vector<cv::Point2f> normalized;
     for (int i =0; i < n; i++){
@@ -56,6 +60,7 @@ std::vector<cv::Point2f> normalizePoints(const std::vector<cv::Point2f>& pts, cv
 cv::Mat computeFundamentalMatrix(const std::vector<cv::Point2f>& pts1,
                                  const std::vector<cv::Point2f>& pts2) {
     
+    // std::cout << "computeF called with " << pts1.size() << " points\n";
     cv::Mat T1, T2;
     std::vector<cv::Point2f> npts1 =normalizePoints(pts1, T1);
     std::vector<cv::Point2f> npts2 = normalizePoints(pts2, T2);
@@ -84,10 +89,12 @@ cv::Mat computeFundamentalMatrix(const std::vector<cv::Point2f>& pts1,
         A.at<double>(i, 8) = 1;
     }
     // SVD solve Af = 0
-    // the first SVD gives us svd.u, svd.w. svd.vt
-    cv::SVD svd(A);
+    // the first SVD gives us svd.u, svd.w. svd.vt, the respective diagonal 
+    // scale and horizontal matrix's
 
-    // we get the last row of the svd' matrix, as values are sorted
+    cv::SVD svd(A, cv::SVD::FULL_UV);
+
+    // we get the last row of the svd' vt matrix, as values are sorted
     // largest to smallest singular values, which is the most 'squahed'
     // direction and gives the solution Af = 0
     cv::Mat f = svd.vt.row(8);
@@ -112,6 +119,119 @@ cv::Mat computeFundamentalMatrix(const std::vector<cv::Point2f>& pts1,
     return F;  // placeholder for now
 }
 
+double epipolarError(const cv::Mat& F, const cv::Point2f& left_pts,
+    const cv::Point2f& right_pts){
+// testing is based of xr^T * F * xl =0, we use Mat_ here 
+cv::Mat xl = (cv::Mat_<double>(3,1) << left_pts.x, left_pts.y, 1.0);
+cv::Mat xr = (cv::Mat_<double>(3,1) << right_pts.x, right_pts.y, 1.0);
+// we want the product to be as close to zero as possible, main property of the 
+// fundemental matrix
+cv::Mat e = xr.t() * F * xl;
+
+// pull out the value
+double error = e.at<double>(0,0);
+
+// we need the absolute epipolar value
+return std::abs(error);
+}
+
+cv::Mat RansacFundamental(const std::vector<cv::Point2f>& pts_left,
+                        const std::vector<cv::Point2f>& pts_right,
+                        double threshold=0.5, int iterations=2000){
+        
+        // store data outside of loop
+        int n = (int)pts_left.size();
+        int best_inliner_count = 0;
+        std::vector<int> best_inliners;
+        cv::RNG rng;
+
+        for (int iter =0; iter<iterations; iter++){
+            std::vector<int> sample_idx;
+            while(sample_idx.size() < 8){
+                // now we apply rng uniform, radnom numb generator
+                int r = rng.uniform(0, n);
+
+                // only add if not chosen already
+                bool already = false;
+                
+                // double check for no duplicates
+                for (int s : sample_idx){
+                    if (s==r) { already = true; break;}}
+                if (!already){ sample_idx.push_back(r);}
+
+            }
+
+            std::vector<cv::Point2f> sample_left;
+            std::vector<cv::Point2f> sample_right;
+            for (int i=0; i < sample_idx.size(); i++){
+                // now we store the correspondences
+                sample_left.push_back(pts_left[sample_idx[i]]);
+                sample_right.push_back(pts_right[sample_idx[i]]);
+             
+            }
+
+
+            cv::Mat F = computeFundamentalMatrix(sample_left, sample_right);
+
+            // here we count score across all points
+            std::vector<int> inliners;
+            for (int i=0; i<n; i++){
+                // obtain all of the inliners
+                double error = epipolarError(F, pts_left[i], pts_right[i]);
+                if (error < threshold){
+                    inliners.push_back(i);
+                }
+            }
+
+            // save the best inliners
+            if ((int)inliners.size() > best_inliner_count){
+                best_inliner_count = (int)inliners.size();
+                best_inliners = inliners;
+            }
+        };
+
+        std::cout << "RANSAC: " << best_inliner_count << " / " << n << " inliers\n";
+        
+        if (best_inliner_count < 8) {
+            std::cerr << "RANSAC failed: not enough inliers (" << best_inliner_count << ")\n";
+            return cv::Mat();   // or fall back to the all-points F
+        }
+
+        // convert the best inliner idexes to left and right points
+        std::vector<cv::Point2f> in_left, in_right;
+        for (int idx : best_inliners){
+            in_left.push_back(pts_left[idx]);
+            in_right.push_back(pts_right[idx]);
+        };
+
+        // refit the best inliners
+        cv::Mat Best_F = computeFundamentalMatrix(in_left, in_right);
+
+        return Best_F;
+}
+
+cv::Mat drawEpipolarLines(const cv::Mat& image,
+    const cv::Mat& F,
+    const std::vector<cv::Point2f>& pts_left,
+    const std::vector<cv::Point2f>& pts_right) {
+    
+    
+    std::vector<cv::Vec3f> lines;
+    cv::computeCorrespondEpilines(pts_left, 1, F, lines);
+
+    cv::Mat out = image.clone();
+    for (int i = 0; i < (int)lines.size() && i < 30; i++) {
+        float a = lines[i][0], b = lines[i][1], c = lines[i][2];
+        cv::Point p0(0, (int)(-c / b));
+        cv::Point p1(out.cols, (int)(-(c + a * out.cols) / b));
+        cv::line(out, p0, p1, cv::Scalar(0, 255, 0), 1);
+        cv::circle(out, pts_right[i], 4, cv::Scalar(0, 0, 255), -1);
+    }
+    return out;
+}
+
+
+
 int main() {
     cv::Mat left = cv::imread("data/left.jpg");
     cv::Mat right = cv::imread("data/right.jpg");
@@ -131,6 +251,7 @@ int main() {
     std::vector<cv::KeyPoint> kp_left, kp_right; // where we put features
     cv::Mat desc_left, desc_right; // the descriptions of the features
     
+
     // because orb is a pointer we use -> to call method on pointer,
     // kp left is the keypoint, and the desc_left is thedescriptor 
     // so the function writes into them
@@ -164,25 +285,37 @@ int main() {
         right_pts.push_back(kp_right[matches[i].trainIdx].pt);
     } 
     
+    // we compute find our fundemntal matrixs 
+    // we test vs the open cv example
     cv::Mat my_F = computeFundamentalMatrix(left_pts, right_pts);
+
+    cv::Mat ransac_F = RansacFundamental(left_pts, right_pts);
+    ransac_F /= ransac_F.at<double>(2,2);
+    std::cout << "ransac F:\n" << ransac_F << "\n";
+
     cv::Mat ocv_F = cv::findFundamentalMat(left_pts, right_pts);
 
-    my_F  /= my_F.at<double>(2, 2);    // scale so bottom-right = 1
+    // test the ransac vs ocv
+    ransac_F  /= ransac_F.at<double>(2, 2);    // scale so bottom-right = 1
     ocv_F /= ocv_F.at<double>(2, 2);
 
+    // plotting
     std::vector<cv::Vec3f> lines_right;
     cv::computeCorrespondEpilines(left_pts, 1, my_F, lines_right);
 
-    cv::Mat right_with_lines = right.clone();
-    for (int i = 0; i < (int)lines_right.size() && i < 30; i++) {
-        float a = lines_right[i][0], b = lines_right[i][1], c = lines_right[i][2];
-        cv::Point p0(0, (int)(-c / b));
-        cv::Point p1(right.cols, (int)(-(c + a * right.cols) / b));
-        cv::line(right_with_lines, p0, p1, cv::Scalar(0, 255, 0), 1);
-        cv::circle(right_with_lines, right_pts[i], 4, cv::Scalar(0, 0, 255), -1);
-    }
-    cv::imshow("my F epipolar lines", right_with_lines);
+    cv::Mat vis_my_f     = drawEpipolarLines(right, my_F,     left_pts, right_pts);
+    cv::Mat vis_ransac_f = drawEpipolarLines(right, ransac_F, left_pts, right_pts);
+    cv::Mat vis_ocv_f    = drawEpipolarLines(right, ocv_F,    left_pts, right_pts);
+
+    cv::imwrite("output/my_f.png",     vis_my_f);
+    cv::imwrite("output/ransac_f.png", vis_ransac_f);
+    cv::imwrite("output/ocv_f.png",    vis_ocv_f);
+
+    cv::imshow("my F",     vis_my_f);
+    cv::imshow("ransac F", vis_ransac_f);
+    cv::imshow("ocv F",    vis_ocv_f);
     cv::waitKey(0);
-    
+
+
     return 0;
 }
