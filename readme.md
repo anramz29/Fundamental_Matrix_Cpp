@@ -104,7 +104,4 @@ estimate into a closer agreement with OpenCV and with the true camera motion.
 
 ## Notes / next steps
 
-- The current version uses all matches, including outliers from repeated texture, so the
-  estimate is pulled off-true. Adding **RANSAC** (run the 8-point on random minimal
-  subsets, keep the F with the most inliers) is the next step to handle outliers — the
-  same thing `cv::findFundamentalMat` does internally.
+- once we have a good fundemental matrix I will plan on figuring out how to include the camera intrinsics of the Iphone, obtain the Essential matrix, then decompose via SVD into the Rotation and translation components. then find the dense correspondence and use those corrispondeces and then do triangulation.
