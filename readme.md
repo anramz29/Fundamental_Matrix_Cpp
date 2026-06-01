@@ -41,14 +41,22 @@ Run from the project root so the `data/` image paths resolve:
 ./build/00_load        # load + display the image pair
 ./build/01_match       # detect + match features, draw matches
 ./build/02_opencv_f    # reference F via cv::findFundamentalMat + epipolar lines
-./build/03_my_f        # hand-rolled 8-point F, compared against OpenCV
+./build/03_my_f        # hand-rolled 8-point F with RANSAC + Sampson distance
 ```
 
 ## Project layout
 
 ```
-apps/        one small program per build step (00–03)
-data/        the stereo image pair (left.jpg, right.jpg)
+apps/          one small program per build step (00–04)
+  00_load      load + display image pair
+  01_match     detect + match features
+  02_opencv_f  reference F via cv::findFundamentalMat
+  03_my_f      hand-rolled 8-point F with RANSAC
+  04_essential essential matrix + pose recovery (R, t)
+include/
+  epipolar_viz.hpp   static helpers for drawing epipolar lines
+  fundamental.hpp    FundamentalMatrix class (compute, ransac, epipolarError)
+data/          stereo image pair (left.jpg, right.jpg + left_1.jpg, right_1.jpg)
 CMakeLists.txt
 ```
 
@@ -104,4 +112,6 @@ estimate into a closer agreement with OpenCV and with the true camera motion.
 
 ## Notes / next steps
 
-- once we have a good fundemental matrix I will plan on figuring out how to include the camera intrinsics of the Iphone, obtain the Essential matrix, then decompose via SVD into the Rotation and translation components. then find the dense correspondence and use those corrispondeces and then do triangulation.
+- **Essential matrix** (`04_essential`) — lift F to E using iPhone camera intrinsics K via `E = Kᵀ F K`, decompose E via SVD into (R, t), resolve the 4-way sign ambiguity with a cheirality check
+- **Triangulation** — given P1 = K[I|0] and P2 = K[R|t], use DLT on each RANSAC inlier pair to recover a sparse 3D point cloud
+- **Dense depth** — if images are a rectified stereo pair, `cv::StereoSGBM` can produce a full disparity map
