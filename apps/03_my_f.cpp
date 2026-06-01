@@ -1,5 +1,6 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <epipolar_viz.hpp>
 
 
 
@@ -220,28 +221,6 @@ cv::Mat RansacFundamental(const std::vector<cv::Point2f>& pts_left,
         return Best_F;
 }
 
-cv::Mat drawEpipolarLines(const cv::Mat& image,
-    const cv::Mat& F,
-    const std::vector<cv::Point2f>& pts_left,
-    const std::vector<cv::Point2f>& pts_right) {
-    
-    
-    std::vector<cv::Vec3f> lines;
-    cv::computeCorrespondEpilines(pts_left, 1, F, lines);
-
-    cv::Mat out = image.clone();
-    for (int i = 0; i < (int)lines.size() && i < 30; i++) {
-        float a = lines[i][0], b = lines[i][1], c = lines[i][2];
-        cv::Point p0(0, (int)(-c / b));
-        cv::Point p1(out.cols, (int)(-(c + a * out.cols) / b));
-        cv::line(out, p0, p1, cv::Scalar(0, 255, 0), 1);
-        cv::circle(out, pts_right[i], 4, cv::Scalar(0, 0, 255), -1);
-    }
-    return out;
-}
-
-
-
 int main() {
     cv::Mat left = cv::imread("data/left.jpg");
     cv::Mat right = cv::imread("data/right.jpg");
@@ -303,27 +282,16 @@ int main() {
     ransac_F /= ransac_F.at<double>(2,2);
     std::cout << "ransac F:\n" << ransac_F << "\n";
 
-    cv::Mat ocv_F = cv::findFundamentalMat(left_pts, right_pts);
-
-    // test the ransac vs ocv
-    ransac_F  /= ransac_F.at<double>(2, 2);    // scale so bottom-right = 1
-    ocv_F /= ocv_F.at<double>(2, 2);
-
     // plotting
-    std::vector<cv::Vec3f> lines_right;
-    cv::computeCorrespondEpilines(left_pts, 1, my_F, lines_right);
-
-    cv::Mat vis_my_f     = drawEpipolarLines(right, my_F,     left_pts, right_pts);
-    cv::Mat vis_ransac_f = drawEpipolarLines(right, ransac_F, left_pts, right_pts);
-    cv::Mat vis_ocv_f    = drawEpipolarLines(right, ocv_F,    left_pts, right_pts);
+    cv::Mat vis_my_f = EpipolarViz::drawEpipolarLines(right, my_F, left_pts, right_pts);
+    cv::Mat vis_ransac_f = EpipolarViz::drawEpipolarLines(right, ransac_F, left_pts, right_pts);
+    
 
     cv::imwrite("output/my_f_scene.png",     vis_my_f);
     cv::imwrite("output/ransac_f_scene.png", vis_ransac_f);
-    cv::imwrite("output/ocv_f_scene.png",    vis_ocv_f);
 
     cv::imshow("my F",     vis_my_f);
     cv::imshow("ransac F", vis_ransac_f);
-    cv::imshow("ocv F",    vis_ocv_f);
     cv::waitKey(0);
 
 
