@@ -22,6 +22,11 @@ target_include_directories(03_my_f PRIVATE include)
 add_executable(04_calibrate apps/04_calibrate.cpp)
 target_link_libraries(04_calibrate ${OpenCV_LIBS})
 
+add_executable(05_essential apps/05_essential.cpp)
+target_link_libraries(05_essential ${OpenCV_LIBS})
+target_include_directories(05_essential PRIVATE include)
+
+
 # later, when src/ files exist, you'll add a library and link it:
 # add_library(stereo src/matching.cpp src/eight_point.cpp)
 # target_include_directories(stereo PUBLIC include)

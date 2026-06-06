@@ -4,7 +4,7 @@ A hand-rolled implementation of the **normalized 8-point algorithm** for estimat
 the fundamental matrix between two images, written in C++ with OpenCV. Built to learn
 classical computer vision and C++ from the ground up — the linear algebra (building the
 constraint matrix, the two SVDs, rank-2 enforcement) is implemented by hand rather than
-calling `cv::findFundamentalMat`.
+calling `cv::findFundamentalMat`. Extends to the essential matrix and camera pose recovery.
 
 ## What it does
 
@@ -18,9 +18,13 @@ Given two photos of the same scene from different viewpoints, it:
    the predicted epipolar line, without requiring full triangulation:
    `d_S = (x'ᵀFx)² / ((Fx)₀² + (Fx)₁² + (Fᵀx')₀² + (Fᵀx')₁²)`
 5. Draws the epipolar lines to confirm the geometry visually
+6. Lifts `F` to the **essential matrix** `E = KᵀFK` using calibrated intrinsics
+7. Recovers camera **rotation R** and **translation t** via `cv::recoverPose`, resolving
+   the 4-way sign ambiguity with a cheirality check
 
 `F` encodes the epipolar geometry between the two views: for corresponding points
-`x` and `x'`, it satisfies `x'ᵀ F x = 0`.
+`x` and `x'`, it satisfies `x'ᵀ F x = 0`. `E` is the calibrated version — same
+constraint but in normalized camera coordinates rather than pixels.
 
 ## Build
 
@@ -43,25 +47,31 @@ Run from the project root so the `data/` image paths resolve:
 ./build/02_opencv_f    # reference F via cv::findFundamentalMat + epipolar lines
 ./build/03_my_f        # hand-rolled 8-point F with RANSAC + Sampson distance
 ./build/04_calibrate   # calibrate camera intrinsics from checkerboard images
+./build/05_essential   # essential matrix + recover R and t between cameras
 ```
 
 ## Project layout
 
 ```
-apps/          one small program per build step (00–04)
+apps/          one small program per build step (00–05)
   00_load        load + display image pair
   01_match       detect + match features
   02_opencv_f    reference F via cv::findFundamentalMat
   03_my_f        hand-rolled 8-point F with RANSAC
   04_calibrate   camera calibration from a checkerboard image set
+  05_essential   essential matrix + recover R and t between cameras
 include/
-  epipolar_viz.hpp   static helpers for drawing epipolar lines
-  fundamental.hpp    FundamentalMatrix class (compute, ransac, epipolarError)
+  epipolar_viz.hpp   helpers for drawing epipolar lines
+  fundemental.hpp    hand-rolled 8-point algorithm, RANSAC, Sampson error
+  matching.hpp       ORB feature detection and brute-force matching
 data/
   left.jpg / right.jpg         stereo pair 1
   left_1.jpg / right_1.jpg     stereo pair 2
   calibration_imgs/            checkerboard images used for intrinsic calibration
-camera_calibation.yml          saved camera intrinsics + distortion coefficients
+output/
+  camera_calibation.yml        camera intrinsics + distortion coefficients
+  fundamental.yml              RANSAC fundamental matrix F
+  essential.yml                essential matrix E, rotation R, translation t
 CMakeLists.txt
 ```
 
@@ -147,8 +157,32 @@ The large k3 and opposing k1/k2 signs are typical for a wide-angle lens correcti
 strong barrel distortion at mid-radii. The sub-pixel RMS error confirms the board
 detections are consistent across the calibration set.
 
+## Essential Matrix + Camera Pose Results
+
+Using the calibrated intrinsics K, the fundamental matrix F is lifted to the essential matrix via `E = KᵀFK`. `cv::recoverPose` decomposes E and selects the geometrically valid (R, t) from the 4 candidates using a cheirality check — the solution where reconstructed points land in front of both cameras.
+
+**Essential matrix E:**
+```
+[ 1.497  -9.033  -12.005]
+[13.718  -0.506  -24.908]
+[14.261  25.101    0.615]
+```
+
+**Rotation R** (small rotation between the two views):
+```
+[ 0.986  -0.061   0.154]
+[ 0.065   0.998  -0.015]
+[-0.153   0.025   0.988]
+```
+
+**Translation t** (unit direction vector — scale not recoverable from images alone):
+```
+[-0.862,  0.408,  -0.302]
+```
+
+The rotation is close to identity, consistent with a mostly sideways camera translation with minimal tilt. Scale would require a depth sensor, known object size, or IMU data.
+
 ## Notes / next steps
 
-- **Essential matrix** (`04_essential`) — lift F to E using iPhone camera intrinsics K via `E = Kᵀ F K`, decompose E via SVD into (R, t), resolve the 4-way sign ambiguity with a cheirality check
 - **Triangulation** — given P1 = K[I|0] and P2 = K[R|t], use DLT on each RANSAC inlier pair to recover a sparse 3D point cloud
 - **Dense depth** — if images are a rectified stereo pair, `cv::StereoSGBM` can produce a full disparity map
