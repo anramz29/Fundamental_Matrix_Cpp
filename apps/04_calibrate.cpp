@@ -13,7 +13,7 @@ int main(){
     // size of squares
     const float squareSize = 25.4f;
     const std::string imageDir = "data/calibration_imgs";
-    const std::string outputFile = "camera_calibation.yml";
+    const std::string outputFile = "output/camera_calibation.yml";
 
     // now we build our ground truth, real world coords of the chessboard
     std::vector<cv::Point3f> objp;
@@ -114,7 +114,7 @@ int main(){
     cv::Mat sample = cv::imread(fs::directory_iterator(imageDir)->path().string());
     cv::Mat undistorted;
     cv::undistort(sample, undistorted, cameraMatrix, distCoeffs);
-    cv::imwrite("undistorted_sample.jpg", undistorted);
+    cv::imwrite("output/undistorted_sample.jpg", undistorted);
     std::cout << "Undistorted sample saved.\n";
 
     return 0;

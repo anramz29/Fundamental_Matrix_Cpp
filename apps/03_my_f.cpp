@@ -65,6 +65,16 @@ int main() {
     ransac_F /= ransac_F.at<double>(2,2);
     std::cout << "ransac F:\n" << ransac_F << "\n";
 
+    cv::FileStorage fs_out("output/fundamental.yml", cv::FileStorage::WRITE);
+    if (!fs_out.isOpened()) {
+        std::cerr << "ERROR: could not open output/fundamental.yml\n";
+        return 1;
+    }
+    fs_out << "fundamental_matrix" << ransac_F;
+    fs_out.release();
+    std::cout << "Saved ransac_F to output/fundamental.yml\n";
+
+
     // plotting
     cv::Mat vis_my_f = EpipolarViz::drawEpipolarLines(right, my_F, left_pts, right_pts);
     cv::Mat vis_ransac_f = EpipolarViz::drawEpipolarLines(right, ransac_F, left_pts, right_pts);
@@ -76,7 +86,6 @@ int main() {
     cv::imshow("my F",     vis_my_f);
     cv::imshow("ransac F", vis_ransac_f);
     cv::waitKey(0);
-
 
     return 0;
 }
