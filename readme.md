@@ -42,21 +42,26 @@ Run from the project root so the `data/` image paths resolve:
 ./build/01_match       # detect + match features, draw matches
 ./build/02_opencv_f    # reference F via cv::findFundamentalMat + epipolar lines
 ./build/03_my_f        # hand-rolled 8-point F with RANSAC + Sampson distance
+./build/04_calibrate   # calibrate camera intrinsics from checkerboard images
 ```
 
 ## Project layout
 
 ```
 apps/          one small program per build step (00–04)
-  00_load      load + display image pair
-  01_match     detect + match features
-  02_opencv_f  reference F via cv::findFundamentalMat
-  03_my_f      hand-rolled 8-point F with RANSAC
-  04_essential essential matrix + pose recovery (R, t)
+  00_load        load + display image pair
+  01_match       detect + match features
+  02_opencv_f    reference F via cv::findFundamentalMat
+  03_my_f        hand-rolled 8-point F with RANSAC
+  04_calibrate   camera calibration from a checkerboard image set
 include/
   epipolar_viz.hpp   static helpers for drawing epipolar lines
   fundamental.hpp    FundamentalMatrix class (compute, ransac, epipolarError)
-data/          stereo image pair (left.jpg, right.jpg + left_1.jpg, right_1.jpg)
+data/
+  left.jpg / right.jpg         stereo pair 1
+  left_1.jpg / right_1.jpg     stereo pair 2
+  calibration_imgs/            checkerboard images used for intrinsic calibration
+camera_calibation.yml          saved camera intrinsics + distortion coefficients
 CMakeLists.txt
 ```
 
@@ -109,6 +114,38 @@ generally the raw algebraic 8-point fit can satisfy the epipolar constraint nume
 while still encoding an incorrect rotation. Switching the inlier metric to the Sampson distance, combined with RANSAC outlier rejection, brings the from-scratch
 estimate into a closer agreement with OpenCV and with the true camera motion.
 
+
+## Camera Calibration Results
+
+Intrinsics estimated from a set of checkerboard images using `04_calibrate`
+(`cv::calibrateCamera` with a 9×6 board). Results saved to `camera_calibation.yml`.
+
+**RMS reprojection error: 0.2533 px**
+
+**Camera matrix K:**
+
+```
+[1541.344  0.000     746.985]
+[0.000     1537.615  988.655]
+[0.000     0.000     1.000  ]
+```
+
+| Parameter | Value |
+|-----------|-------|
+| fx | 1541.344 px |
+| fy | 1537.615 px |
+| cx | 746.985 px |
+| cy | 988.655 px |
+
+**Distortion coefficients (k1, k2, p1, p2, k3):**
+
+| k1 | k2 | p1 | p2 | k3 |
+|----|----|----|----|----|
+| 0.2913 | −1.9516 | −0.000771 | −0.000768 | 3.9679 |
+
+The large k3 and opposing k1/k2 signs are typical for a wide-angle lens correcting
+strong barrel distortion at mid-radii. The sub-pixel RMS error confirms the board
+detections are consistent across the calibration set.
 
 ## Notes / next steps
 

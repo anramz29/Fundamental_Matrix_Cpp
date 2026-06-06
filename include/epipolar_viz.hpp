@@ -8,10 +8,11 @@ public:
         const std::vector<cv::Point2f>& pts_left,
         const std::vector<cv::Point2f>& pts_right) {
         
-        
+        // obtain our epipolar lines
         std::vector<cv::Vec3f> lines;
         cv::computeCorrespondEpilines(pts_left, 1, F, lines);
 
+        // 
         cv::Mat out = image.clone();
         for (int i = 0; i < (int)lines.size() && i < 30; i++) {
             float a = lines[i][0], b = lines[i][1], c = lines[i][2];

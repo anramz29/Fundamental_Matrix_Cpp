@@ -13,13 +13,14 @@ target_link_libraries(01_match ${OpenCV_LIBS})
 
 add_executable(02_opencv_f apps/02_opencv_f.cpp)
 target_link_libraries(02_opencv_f ${OpenCV_LIBS})
+target_include_directories(02_opencv_f PRIVATE include)
 
 add_executable(03_my_f apps/03_my_f.cpp)
 target_link_libraries(03_my_f ${OpenCV_LIBS})
-
-# include the executables so they can find the header files
-target_include_directories(02_opencv_f PRIVATE include)
 target_include_directories(03_my_f PRIVATE include)
+
+add_executable(04_calibrate apps/04_calibrate.cpp)
+target_link_libraries(04_calibrate ${OpenCV_LIBS})
 
 # later, when src/ files exist, you'll add a library and link it:
 # add_library(stereo src/matching.cpp src/eight_point.cpp)
