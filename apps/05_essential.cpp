@@ -56,8 +56,22 @@ int main(){
 
     computeOrbMatches(left, right, left_pts, right_pts);
 
+    // recover pose needs undistroed points 
+    cv::Mat dist;
+    cam_in["distortion_coefficients"] >> dist;
+
+    std::vector<cv::Point2f> left_ud, right_ud;
+    cv::undistortPoints(left_pts,  left_ud,  K, dist, cv::noArray(), K);
+    cv::undistortPoints(right_pts, right_ud, K, dist, cv::noArray(), K);
+
     cv::Mat R_true, t_true;
-    cv::recoverPose(E, left_pts, right_pts, K, R_true, t_true);
+
+    // get inlier mask from RANSAC before recoverPose
+    std::vector<uchar> inlier_mask;
+    cv::findFundamentalMat(left_ud, right_ud,
+        cv::FM_RANSAC, 3.0, 0.999, inlier_mask);
+
+    cv::recoverPose(E, left_ud, right_ud, K, R_true, t_true, inlier_mask);
 
     std::cout << "Rotation Matrix: " << R_true << std::endl;
     std::cout << "translation vector: " << t_true << std::endl;
