@@ -97,11 +97,11 @@ Scene: a staircase with a hallway receding to a far door, a checkerboard on the 
 ![My F epipolar lines on scene](output/my_f_scene.png)
 Epipole lands inside the frame; lines are skewed — outliers pull the algebraic fit off the true geometry.
 
-**Hand-rolled 8-point algorithm with RANSAC + Sampson distance (10 000 iterations) — 101 inliers**
+**Hand-rolled 8-point algorithm with RANSAC + Sampson distance (3000 iterations) — 101 inliers**
 ![RANSAC epipolar lines on scene](output/ransac_f_scene.png)
 Epipole off the right edge; lines are nearly parallel — matches the OpenCV reference visually.
 
-**OpenCV reference (`cv::findFundamentalMat` with `FM_RANSAC`) — 108 inliers**
+**OpenCV reference (`cv::findFundamentalMat` with `FM_RANSAC`) — 135 inliers**
 ![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
 Epipole off the right edge; lines are nearly parallel — consistent with a predominantly sideways camera translation.
 
