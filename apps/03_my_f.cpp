@@ -24,7 +24,7 @@ int main() {
     // we test vs the open cv example
     cv::Mat my_F = computeFundamentalMatrix(left_pts, right_pts);
 
-    cv::Mat ransac_F = RansacFundamental(left_pts, right_pts, 9.0, 2000);
+    cv::Mat ransac_F = RansacFundamental(left_pts, right_pts, 9.0, 10000);
     ransac_F /= ransac_F.at<double>(2,2);
     std::cout << "ransac F:\n" << ransac_F << "\n";
 

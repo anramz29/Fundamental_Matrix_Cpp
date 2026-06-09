@@ -97,9 +97,9 @@ Scene: a staircase with a hallway receding to a far door, a checkerboard on the 
 ![My F epipolar lines on scene](output/my_f_scene.png)
 Epipole lands inside the frame; lines are skewed — outliers pull the algebraic fit off the true geometry.
 
-**Hand-rolled 8-point algorithm with RANSAC + Sampson distance — 101 inliers**
+**Hand-rolled 8-point algorithm with RANSAC + Sampson distance (10 000 iterations) — 101 inliers**
 ![RANSAC epipolar lines on scene](output/ransac_f_scene.png)
-Epipole pushed off the upper-right edge of the frame; lines fan correctly across the whole scene.
+Epipole off the right edge; lines are nearly parallel — matches the OpenCV reference visually.
 
 **OpenCV reference (`cv::findFundamentalMat` with `FM_RANSAC`) — 108 inliers**
 ![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
@@ -109,7 +109,7 @@ Epipole off the right edge; lines are nearly parallel — consistent with a pred
 
 The scene is a staircase with strong depth variation (checkerboard metric reference, foreground objects, receding hallway). The camera was translated roughly sideways, so epipolar lines should fan out from a distant epipole near or beyond the right edge of the frame.
 
-The raw algebraic 8-point fit (`my_f`) satisfies the epipolar constraint numerically but is pulled off by outliers, placing the epipole inside the frame. Switching to Sampson-distance RANSAC (`ransac_f`, 101 inliers) and OpenCV's RANSAC (`ocv_f`, 108 inliers) both recover a geometrically correct F: epipole off-frame, lines fanning across the scene consistent with the actual camera motion.
+The raw algebraic 8-point fit (`my_f`) satisfies the epipolar constraint numerically but is pulled off by outliers, placing the epipole inside the frame. Switching to Sampson-distance RANSAC (`ransac_f`, 10 000 iterations, 101 inliers) recovers geometrically correct geometry that matches the OpenCV reference: epipole off-frame to the right, lines nearly parallel across the scene, consistent with the actual sideways camera translation.
 
 
 ## Camera Calibration Results
