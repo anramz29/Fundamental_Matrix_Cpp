@@ -65,8 +65,7 @@ include/
   fundemental.hpp    hand-rolled 8-point algorithm, RANSAC, Sampson error
   matching.hpp       ORB feature detection and brute-force matching
 data/
-  left.jpg / right.jpg         stereo pair 1
-  left_1.jpg / right_1.jpg     stereo pair 2
+  left.jpg / right.jpg         staircase stereo pair
   calibration_imgs/            checkerboard images used for intrinsic calibration
 output/
   camera_calibation.yml        camera intrinsics + distortion coefficients
@@ -88,41 +87,29 @@ CMakeLists.txt
 
 ## Results
 
-### Image pair 1 (left.jpg / right.jpg)
+### Staircase scene (left.jpg / right.jpg)
 
-**OpenCV reference (`cv::findFundamentalMat` + RANSAC internally)**
-![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
+Scene: a staircase with a hallway receding to a far door, a checkerboard on the right wall as a metric reference, and a carved mirror frame and pillow in the foreground — good depth variation from near to far.
+
+**Matching:** ORB with 2000 features (bumped from 500 to prevent the checkerboard from dominating matches). Matches filtered with Lowe's ratio test (threshold 0.75, `knnMatch` k=2) in `computeOrbMatches`, yielding **329 good matches**. All three estimators below use the same filtered point set for a fair comparison.
 
 **Hand-rolled 8-point algorithm (all matches, no RANSAC)**
 ![My F epipolar lines on scene](output/my_f_scene.png)
+Epipole lands inside the frame; lines are skewed — outliers pull the algebraic fit off the true geometry.
 
-**Hand-rolled 8-point algorithm with RANSAC + Sampson distance**
+**Hand-rolled 8-point algorithm with RANSAC + Sampson distance — 101 inliers**
 ![RANSAC epipolar lines on scene](output/ransac_f_scene.png)
+Epipole pushed off the upper-right edge of the frame; lines fan correctly across the whole scene.
 
-
----
-
-### Image pair 2 (left_1.jpg / right_1.jpg)
-
-**OpenCV reference**
-![OpenCV epipolar lines on scene 2](output/ocv_f_scene2.png)
-
-**Hand-rolled 8-point algorithm (all matches, no RANSAC)**
-![My F epipolar lines on scene 2](output/my_f_scene2.png)
-
-**Hand-rolled 8-point algorithm with RANSAC + Sampson distance**
-![RANSAC epipolar lines on scene 2](output/ransac_f_scene2.png)
+**OpenCV reference (`cv::findFundamentalMat` with `FM_RANSAC`) — 108 inliers**
+![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
+Epipole off the right edge; lines are nearly parallel — consistent with a predominantly sideways camera translation.
 
 # Camera Motion and Written Results
-As seen above an indoor room (lots of repetitive
-texture — serape stripes, blind slats, curtain grid) and an outdoor stone wall
-(rich non-repetitive texture). In both the camera was roughly translated sideway with no rotation, so the epipolar lines should be near-horizontal. Three fundamental matrices are compared, each visualized by drawing epipolar
-lines (green) and the corresponding points (red) on the right image. A correct F
-is indicated by red points lying on their green lines. 
 
-generally the raw algebraic 8-point fit can satisfy the epipolar constraint numerically
-while still encoding an incorrect rotation. Switching the inlier metric to the Sampson distance, combined with RANSAC outlier rejection, brings the from-scratch
-estimate into a closer agreement with OpenCV and with the true camera motion.
+The scene is a staircase with strong depth variation (checkerboard metric reference, foreground objects, receding hallway). The camera was translated roughly sideways, so epipolar lines should fan out from a distant epipole near or beyond the right edge of the frame.
+
+The raw algebraic 8-point fit (`my_f`) satisfies the epipolar constraint numerically but is pulled off by outliers, placing the epipole inside the frame. Switching to Sampson-distance RANSAC (`ransac_f`, 101 inliers) and OpenCV's RANSAC (`ocv_f`, 108 inliers) both recover a geometrically correct F: epipole off-frame, lines fanning across the scene consistent with the actual camera motion.
 
 
 ## Camera Calibration Results

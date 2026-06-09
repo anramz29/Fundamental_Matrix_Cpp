@@ -11,7 +11,7 @@ inline void computeOrbMatches(const cv::Mat& left, const cv::Mat& right,
     // gives us a smartpointer (cv::Ptr) therefore 
     // cv:Ptr<cv::Orb> type that holds orb and cv::ORB::create()
     // is "make me one"
-    cv::Ptr<cv::ORB> orb = cv::ORB::create();
+    cv::Ptr<cv::ORB> orb = cv::ORB::create(2000);
 
     // detect key points, 
     std::vector<cv::KeyPoint> kp_left, kp_right; // where we put features
@@ -28,22 +28,20 @@ inline void computeOrbMatches(const cv::Mat& left, const cv::Mat& right,
     std::cout << "left features:  " << kp_left.size()  << "\n";
     std::cout << "right features: " << kp_right.size() << "\n";
 
-    // BF refers to brute force matching, and NORM_HAMMING is the distance
-    // measure for orb specfically
+    // knnMatch (k=2) so we have the two nearest neighbours for the ratio test.
+    // do NOT set crossCheck on the matcher here — it conflicts with knnMatch.
     cv::BFMatcher matcher(cv::NORM_HAMMING);
+    std::vector<std::vector<cv::DMatch>> knn;
+    matcher.knnMatch(desc_left, desc_right, knn, 2);
 
-    // matches are a pair of indices into keypoint lists
-    //DMatch ≈ (queryIdx, trainIdx)   
-    std::vector<cv::DMatch> matches;
-    matcher.match(desc_left, desc_right, matches);
-
-    // print matches
-    std::cout << "matches: " << matches.size() << "\n";
-
-    // here we iterate over matches, the get queryIdx or trainIdx
-    // to use it's index in kp and take .pt (x, y) position
-    for (int i=0; i < matches.size(); i++){
-        left_pts.push_back(kp_left[matches[i].queryIdx].pt);
-        right_pts.push_back(kp_right[matches[i].trainIdx].pt);
-    } 
+    // Lowe's ratio test: keep a match only when the best neighbour is clearly
+    // closer than the second best. discards ambiguous matches before they
+    // ever reach the fundamental-matrix solvers.
+    for (auto& m : knn) {
+        if (m.size() == 2 && m[0].distance < 0.75f * m[1].distance) {
+            left_pts.push_back(kp_left[m[0].queryIdx].pt);
+            right_pts.push_back(kp_right[m[0].trainIdx].pt);
+        }
+    }
+    std::cout << "good matches: " << left_pts.size() << "\n";
 }
