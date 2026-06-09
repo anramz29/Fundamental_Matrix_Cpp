@@ -13,7 +13,7 @@ int main(){
     // size of squares
     const float squareSize = 25.4f;
     const std::string imageDir = "data/calibration_imgs";
-    const std::string outputFile = "output/camera_calibation.yml";
+    const std::string outputFile = "output/camera_calibration.yml";
 
     // now we build our ground truth, real world coords of the chessboard
     std::vector<cv::Point3f> objp;

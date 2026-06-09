@@ -2,6 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <epipolar_viz.hpp>
 #include <fundemental.hpp>
+#include <ransac.hpp>
 #include <matching.hpp>
 
 
