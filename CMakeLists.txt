@@ -26,6 +26,13 @@ add_executable(05_essential apps/05_essential.cpp)
 target_link_libraries(05_essential ${OpenCV_LIBS})
 target_include_directories(05_essential PRIVATE include)
 
+add_executable(06_triangulate apps/06_triangulate.cpp)
+target_link_libraries(06_triangulate ${OpenCV_LIBS})
+target_include_directories(06_triangulate PRIVATE include)
+
+add_executable(07_rectify apps/07_rectify.cpp)
+target_link_libraries(07_rectify ${OpenCV_LIBS})
+
 
 # later, when src/ files exist, you'll add a library and link it:
 # add_library(stereo src/matching.cpp src/eight_point.cpp)

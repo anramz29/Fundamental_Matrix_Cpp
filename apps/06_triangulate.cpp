@@ -1,6 +1,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <matching.hpp>
+#include <fstream>
 
 int main(){
     // load in camera intrinsics
@@ -90,27 +91,97 @@ int main(){
     }
     std::cout << "triangulated: " << pts3D.size() << " points\n";
 
-    // TODO: use the checkerboardsin teh image to triangulate and get the scale of the movem
-    // TODO: ment done
+    
+    // metrics from the checkerboard
+    const cv::Size boardSize(7,9);
+    // create checkerboard corners
+    std::vector<cv::Point2f> corners_left, corners_right;
+    cv::Mat gray_left, gray_right;
+
+    // convert to grey scale
+    cv::cvtColor(left, gray_left, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(right, gray_right, cv::COLOR_BGR2GRAY);
+
+    // now find the chessboard corners
+    bool found_l = cv::findChessboardCorners(gray_left, boardSize, corners_left);
+    bool found_r = cv::findChessboardCorners(gray_right, boardSize, corners_right);
+
+    if (!found_l || !found_r) {
+        std::cerr << "chessboard not found — check board size\n";
+        return 1;
+    }
+
+    // now we do corner subpix to refinment using gradients
+    cv::cornerSubPix(gray_left, corners_left, 
+        {11, 11}, // search window size
+        {-1,-1},  // dead zone {-1, -1} means nothing
+        {cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.001} 
+        // stop after 30 iterations or when movement is less than .001
+    );
+
+    // right side
+    cv::cornerSubPix(gray_right, corners_right, 
+        {11,11}, 
+        {-1,-1},
+        {cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.001}
+    );
+
+    // undistort corners too
+    std::vector<cv::Point2f> cl_ud, cr_ud;
+    cv::undistortPoints(corners_left, cl_ud, K, dist, cv::noArray(), K);
+    cv::undistortPoints(corners_right, cr_ud, K, dist, cv::noArray(), K);
 
 
+    
+    // triangulate corners
+    cv::Mat corner_pts4D;
+    cv::triangulatePoints(P1, P2, cl_ud, cr_ud, corner_pts4D);
 
+    // lambda divides by W to get the real euclidian distance
+    auto get3D = [&](int i) -> cv::Point3f {
+        float w = corner_pts4D.at<float>(3, i);
+        return {
+            corner_pts4D.at<float>(0, i) / w,
+            corner_pts4D.at<float>(1, i) / w,
+            corner_pts4D.at<float>(2, i) / w
+        };
+    };
 
+    // scale: one square between corner 0 and corner 1
+    cv::Point3f c0 = get3D(0), c1 = get3D(1);
+    double reconstructed = cv::norm(c1 - c0);
+    double scale = square_mm / reconstructed;
+    std::cout << "scale: " << scale << " mm/unit\n";
 
+    // print first 5 points in mm
+    std::cout << "\nfirst 5 points (mm):\n";
+    for (int i = 0; i < std::min(5, (int)pts3D.size()); i++) {
+        std::cout << "  ("
+            << pts3D[i].x * scale << ", "
+            << pts3D[i].y * scale << ", "
+            << pts3D[i].z * scale << ") mm\n";
+    }
+    
+    // cross-check: corner 0 to corner 2 should be 2 squares = 2 * square_mm
+    cv::Point3f c2 = get3D(2);
+    double check = cv::norm(c2 - c0) * scale;
+    std::cout << "\ncross-check c0->c2: " << check
+            << " mm (expected " << 2.0 * square_mm << " mm)\n";
+    
 
+        // save 2D + 3D together
+    std::ofstream out("output/points3d.csv");
+    out << "u,v,x,y,z\n";
+    for (int i = 0; i < (int)pts3D.size(); i++) {
+        out << in_right[i].x << ","   // pixel location in right image
+            << in_right[i].y << ","
+            << pts3D[i].x * scale << ","
+            << pts3D[i].y * scale << ","
+            << pts3D[i].z * scale << "\n";
+    }
+    
+    out.close();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    std::cout << "saved points3d.csv\n";
+    return 0;
 }

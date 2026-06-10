@@ -48,6 +48,8 @@ Run from the project root so the `data/` image paths resolve:
 ./build/03_my_f        # hand-rolled 8-point F with RANSAC + Sampson distance
 ./build/04_calibrate   # calibrate camera intrinsics from checkerboard images
 ./build/05_essential   # essential matrix + recover R and t between cameras
+./build/06_triangulate # metric 3D reconstruction from stereo pair
+./build/07_rectify     # stereo rectification, saves rectified images and Q matrix
 ```
 
 ## Project layout
@@ -60,6 +62,8 @@ apps/          one small program per build step (00–05)
   03_my_f        hand-rolled 8-point F with RANSAC
   04_calibrate   camera calibration from a checkerboard image set
   05_essential   essential matrix + recover R and t between cameras
+  06_triangulate metric 3D reconstruction from stereo pair
+  07_rectify     stereo rectification — warps both images so epipolar lines are horizontal rows, saves rectified images and Q matrix for SGBM
 include/
   epipolar_viz.hpp   helpers for drawing epipolar lines
   fundemental.hpp    hand-rolled 8-point algorithm, RANSAC, Sampson error
@@ -104,6 +108,10 @@ Epipole off the right edge; lines are nearly parallel — matches the OpenCV ref
 **OpenCV reference (`cv::findFundamentalMat` with `FM_RANSAC`) — 135 inliers**
 ![OpenCV epipolar lines on scene](output/ocv_f_scene.png)
 Epipole off the right edge; lines are nearly parallel — consistent with a predominantly sideways camera translation.
+
+**Camera motion and 3D point cloud**
+![Camera positions and baseline against 3D point cloud](output/camera_motion.png)
+Camera positions (red = left, orange = right) and baseline plotted against the reconstructed 3D point cloud. The Y-dominant baseline reflects the vertical translation between the two shots, confirmed by the rectification check.
 
 # Camera Motion and Written Results
 
@@ -150,26 +158,41 @@ Using the calibrated intrinsics K, the fundamental matrix F is lifted to the ess
 
 **Essential matrix E:**
 ```
-[ 1.497  -9.033  -12.005]
-[13.718  -0.506  -24.908]
-[14.261  25.101    0.615]
+[-0.559  -0.790   6.418]
+[ 1.187   0.023  -0.302]
+[-6.415  -0.020   0.792]
 ```
 
 **Rotation R** (small rotation between the two views):
 ```
-[ 0.986  -0.061   0.154]
-[ 0.065   0.998  -0.015]
-[-0.153   0.025   0.988]
+[ 0.9997   0.0145  -0.0192]
+[-0.0156   0.9983  -0.0567]
+[ 0.0184   0.0570   0.9982]
 ```
 
-**Translation t** (unit direction vector — scale not recoverable from images alone):
+**Translation t** (unit direction vector):
 ```
-[-0.862,  0.408,  -0.302]
+[0.024, 0.983, 0.180]
 ```
 
-The rotation is close to identity, consistent with a mostly sideways camera translation with minimal tilt. Scale would require a depth sensor, known object size, or IMU data.
+The rotation is close to identity, consistent with minimal tilt between the two shots. The translation is Y-dominant (0.983 in Y), meaning the camera moved mostly vertically between the two views — consistent with the rectification check. Metric scale was recovered from the checkerboard reference (117.3 mm/unit, 0.1% error) and is documented in the Triangulation & Metric Reconstruction section.
+
+## Triangulation & Metric Reconstruction
+
+`06_triangulate` loads E, R, t, and K from the saved YML files, matches and undistorts inlier points, builds projection matrices P1 = K[I|0] and P2 = K[R|t], and triangulates with `cv::triangulatePoints`. Metric scale is recovered by detecting checkerboard corners (with subpixel refinement) in the right image and comparing the pixel-distance between adjacent corners against the known 50 mm square size.
+
+**109 inliers triangulated** — metric scale: **117.3 mm/unit**. Cross-check on a known 50.8 mm distance yielded 50.73 mm (**0.1% error**). Scaled 3D points saved to `output/points3d.csv`.
+
+The reconstruction is sparse (109 points) because ORB matches concentrate on high-contrast features such as corners and edges, leaving large homogeneous regions unsampled. Dense reconstruction via `cv::StereoSGBM` on the rectified pair is the planned next step.
+
+## Rectification
+
+`07_rectify` uses `cv::stereoRectify` with K, dist, R, t to compute rectification transforms for both cameras, then `cv::initUndistortRectifyMap` and `cv::remap` to warp both images. The Q matrix (disparity-to-depth) is saved to `output/rectify.yml` for use in the SGBM step.
+
+**Rectification check**
+![Rectified images side by side](output/rectify_check.png)
+Left and right rectified images side by side with horizontal epipolar lines drawn every 100 px. Features in both panels sit on the same horizontal line, confirming correct rectification. The curved black borders are expected — a result of undistorting the large barrel distortion (k1=0.29, k3=3.97).
 
 ## Notes / next steps
 
-- **Triangulation** — given P1 = K[I|0] and P2 = K[R|t], use DLT on each RANSAC inlier pair to recover a sparse 3D point cloud
-- **Dense depth** — if images are a rectified stereo pair, `cv::StereoSGBM` can produce a full disparity map
+- **Dense depth** — run `cv::StereoSGBM` on the rectified pair using the saved Q matrix for a full disparity map
