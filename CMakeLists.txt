@@ -33,6 +33,9 @@ target_include_directories(06_triangulate PRIVATE include)
 add_executable(07_rectify apps/07_rectify.cpp)
 target_link_libraries(07_rectify ${OpenCV_LIBS})
 
+add_executable(08_sgbm apps/08_sgbm.cpp)
+target_link_libraries(08_sgbm ${OpenCV_LIBS})
+
 
 # later, when src/ files exist, you'll add a library and link it:
 # add_library(stereo src/matching.cpp src/eight_point.cpp)
